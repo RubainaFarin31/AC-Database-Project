@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemistry Inventory</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+            position: relative;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        tr:hover {
+            background-color: #f2f2f2;
+        }
+        .add-btn {
+            display: block;
+            width: 100%;
+            max-width: 200px;
+            margin: 20px auto;
+            padding: 10px;
+            text-align: center;
+            background-color: #4caf50;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .add-btn:hover {
+            background-color: #45a049;
+        }
+        .upload-btn {
+            display: block;
+            width: 100%;
+            max-width: 200px;
+            margin: 20px auto;
+            padding: 10px;
+            text-align: center;
+            background-color: #2196f3;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .upload-btn:hover {
+            background-color: #0b7dda;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            padding: 10px;
+            background-color: #f44336;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        .low-inventory {
+            background-color: red;
+        }
+        .search-bar {
+            margin-bottom: 20px;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chemistry Inventory</h1>
+
+        <!-- Search Bar -->
+        <form class="search-bar" onsubmit="searchChemicals(event)">
+            <input type="text" id="searchInput" placeholder="Search chemicals...">
+            <button type="submit">Search</button>
+        </form>
+
+        <!-- Add Chemical Button -->
+        <a class="add-btn" href="/add">Add Chemical</a>
+
+        <!-- File Upload Form -->
+        <form id="uploadForm" enctype="multipart/form-data" action="/upload_csv" method="POST" onsubmit="return validateUpload()">
+            <label for="file" class="upload-btn">
+                Upload CSV
+            </label>
+            <input type="file" id="file" name="file" style="display: none;" onchange="handleFileSelect(event)">
+            <input type="submit" value="Upload" style="display: none;">
+        </form>
+
+        <!-- Logout Button -->
+        <a class="logout-btn" href="/logout">Logout</a>
+
+        <!-- Chemicals Table -->
+        <table id="chemicalsTable">
+            <thead>
+                <tr>
+                    <th>Catalogue Number</th>
+                    <th>CAS Number</th>
+                    <th>Location</th>
+                    <th>Structure</th>
+                    <th>Molecular Weight</th>
+                    <th>Quantity</th>
+                    <th>Barcode</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="chemicalsBody"> <!-- Table body for dynamic population -->
+                <!-- Table rows will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- JavaScript Section -->
+    <script>
+        // Function to search chemicals based on query
+        function searchChemicals(event) {
+            event.preventDefault(); // Prevent form submission
+
+            var query = document.getElementById("searchInput").value;
+
+            // Fetch chemicals based on search query from Flask backend
+            fetch("/search?query=" + query)
+                .then(response => response.json())
+                .then(chemicals => {
+                    displayChemicals(chemicals);
+                })
+                .catch(error => {
+                    console.error('Error fetching chemicals:', error);
+                });
+        }
+
+        // Function to handle file select (simulate upload)
+        function handleFileSelect(event) {
+            var file = event.target.files[0];
+            var formData = new FormData();
+            formData.append('file', file);
+
+            // Simulated upload using fetch to Flask backend
+            fetch('/upload_csv', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Upload success:', result);
+                // Optionally update UI or display success message
+                searchChemicals(new Event('submit')); // Refresh chemicals after upload
+            })
+            .catch(error => {
+                console.error('Error uploading file:', error);
+            });
+        }
+
+        // Function to validate file upload
+        function validateUpload() {
+            var fileInput = document.getElementById('file');
+            var filePath = fileInput.value;
+            var allowedExtensions = /(\.csv)$/i;
+
+            if (!allowedExtensions.exec(filePath)) {
+                alert('Invalid file type. Only CSV files are allowed.');
+                fileInput.value = '';
+                return false;
+            }
+            return true;
+        }
+
+        // Function to display chemicals in table
+        function displayChemicals(chemicals) {
+            var tableRows = "";
+            chemicals.forEach(function(chemical) {
+                tableRows += "<tr>";
+                for (var i = 0; i < chemical.length; i++) {
+                    if (i === 5 && parseInt(chemical[i]) < 10) {
+                        tableRows += "<td class='low-inventory'>" + escapeHtml(chemical[i]) + "</td>";
+                    } else {
+                        tableRows += "<td>" + escapeHtml(chemical[i]) + "</td>";
+                    }
+                }
+                // Add delete button with chemical ID as data attribute
+                tableRows += "<td><button class='delete-btn' onclick='deleteChemical(\"" + chemical[0] + "\")'>Delete</button></td>";
+                tableRows += "</tr>";
+            });
+            document.getElementById("chemicalsBody").innerHTML = tableRows;
+        }
+
+        // Function to delete a chemical
+        function deleteChemical(catalogueNumber) {
+            if (confirm("Are you sure you want to delete this chemical?")) {
+                fetch("/delete/" + catalogueNumber, {
+                    method: "DELETE"
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert("Chemical deleted successfully!");
+                        // Refresh chemicals after deletion
+                        searchChemicals(new Event('submit'));
+                    } else {
+                        alert("Failed to delete chemical: " + result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting chemical:', error);
+                    alert("Failed to delete chemical. Please try again later.");
+                });
+            }
+        }
+
+        // Function to escape HTML characters
+        function escapeHtml(unsafe) {
+            return (unsafe + '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        // Initial display when page loads (simulated data)
+        searchChemicals(new Event('submit'));
+    </script>
+</body>
+</html>
